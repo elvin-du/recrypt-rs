@@ -1335,8 +1335,27 @@ pub(crate) mod test {
 
         let decrypted_val = api.decrypt(encrypted_val, &priv_key).unwrap();
 
-        // compare the bytes as a vec as Plaintext and [u8; 384] don't define Eq
-        assert_eq!(pt.bytes.to_vec(), decrypted_val.bytes.to_vec());
+        assert_eq!(pt, decrypted_val);
+        Ok(())
+    }
+
+    #[test]
+    fn encrypt_decrypt_wrong_priv_key() -> Result<()> {
+        use rand::SeedableRng;
+        let api = Recrypt::new_with_rand(rand_chacha::ChaChaRng::from_seed([0u8; 32]));
+        let pt = api.gen_plaintext();
+        let (_, pub_key) = api.generate_key_pair().unwrap();
+        let (wrong_priv_key, _) = api.generate_key_pair().unwrap();
+        let priv_signing_key = api.generate_ed25519_key_pair();
+
+        let encrypted_val = api.encrypt(&pt, &pub_key, &priv_signing_key).unwrap();
+
+        let err = api.decrypt(encrypted_val, &wrong_priv_key).unwrap_err();
+
+        assert_eq!(
+            err,
+            RecryptErr::DecryptFailed(internal::InternalError::AuthHashMatchFailed)
+        );
         Ok(())
     }
 
